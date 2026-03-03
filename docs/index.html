@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HD2 Loadout Generator</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap');
+
+    :root {
+      --accent: #ffc800;
+      --accent-rgb: 255, 200, 0;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Rajdhani', sans-serif;
+      background: #0a0a0f;
+      color: #e0e0e0;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.1) 2px, rgba(0,0,0,0.1) 4px);
+      pointer-events: none;
+      z-index: 1000;
+    }
+
+    .container { max-width: 960px; margin: 0 auto; padding: 20px 16px; }
+
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+      padding: 24px 16px;
+      background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.08) 0%, transparent 100%);
+      border-bottom: 2px solid var(--accent);
+    }
+    .header::before { content: '⬇️'; font-size: 40px; display: block; margin-bottom: 8px; }
+    .header h1 {
+      font-family: 'Orbitron', monospace;
+      font-size: clamp(18px, 5vw, 28px);
+      font-weight: 900; color: var(--accent);
+      text-transform: uppercase; letter-spacing: 3px;
+      text-shadow: 0 0 20px rgba(var(--accent-rgb), 0.5);
+    }
+    .header .subtitle { font-size: 14px; color: #888; margin-top: 4px; letter-spacing: 2px; text-transform: uppercase; }
+
+    .faction-select { display: flex; gap: 10px; justify-content: center; margin-bottom: 24px; flex-wrap: wrap; }
+    .faction-btn {
+      font-family: 'Orbitron', monospace;
+      font-size: clamp(12px, 3vw, 14px); font-weight: 700;
+      padding: 14px 20px; border: 2px solid #333; border-radius: 4px;
+      background: rgba(255,255,255,0.03); color: #aaa; cursor: pointer;
+      transition: all 0.2s; text-transform: uppercase; letter-spacing: 1px;
+      flex: 1; min-width: 100px; max-width: 200px;
+    }
+    .faction-btn:hover { border-color: #666; color: #fff; background: rgba(255,255,255,0.06); }
+    .faction-btn.active { border-color: var(--fc); color: var(--fc); background: var(--fb); box-shadow: 0 0 20px var(--fg); }
+    .faction-btn[data-faction="terminids"] { --fc: #ff6a00; --fb: rgba(255,106,0,0.1); --fg: rgba(255,106,0,0.3); }
+    .faction-btn[data-faction="automatons"] { --fc: #ff2020; --fb: rgba(255,32,32,0.1); --fg: rgba(255,32,32,0.3); }
+    .faction-btn[data-faction="illuminate"] { --fc: #a855f7; --fb: rgba(168,85,247,0.1); --fg: rgba(168,85,247,0.3); }
+
+    /* ── Warbond Panel ── */
+    .warbond-panel {
+      margin-bottom: 16px;
+      border: 1px solid #222;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.02);
+      overflow: hidden;
+    }
+    .warbond-toggle {
+      width: 100%;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px;
+      background: none; border: none;
+      font-family: 'Orbitron', monospace; font-size: 11px; font-weight: 700;
+      color: #666; cursor: pointer; text-transform: uppercase; letter-spacing: 2px;
+      transition: color 0.2s;
+    }
+    .warbond-toggle:hover { color: var(--accent); }
+    .warbond-toggle .arrow { transition: transform 0.2s; font-size: 10px; }
+    .warbond-toggle.open .arrow { transform: rotate(90deg); }
+    .warbond-grid {
+      display: none;
+      padding: 0 14px 12px;
+      gap: 6px;
+    }
+    .warbond-grid.open {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    }
+    .warbond-item {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 8px;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .warbond-item:hover { background: rgba(255,255,255,0.04); }
+    .warbond-item input[type="checkbox"] {
+      accent-color: var(--accent);
+      width: 14px; height: 14px;
+      cursor: pointer;
+    }
+    .warbond-item label {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 13px; font-weight: 600;
+      color: #aaa; cursor: pointer;
+      user-select: none;
+    }
+    .warbond-item input:checked + label { color: var(--accent); }
+    .warbond-actions {
+      display: flex; gap: 8px; padding: 0 14px 10px;
+    }
+    .warbond-actions.hidden { display: none; }
+    .wb-action-btn {
+      font-family: 'Orbitron', monospace; font-size: 9px; font-weight: 700;
+      padding: 4px 10px; border: 1px solid #333; border-radius: 3px;
+      background: none; color: #555; cursor: pointer;
+      text-transform: uppercase; letter-spacing: 1px; transition: all 0.15s;
+    }
+    .wb-action-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    .music-btn {
+      position: fixed; top: 12px; right: 12px; z-index: 100;
+      background: rgba(255,255,255,0.05); border: 1px solid #333;
+      color: #888; font-family: 'Orbitron', monospace; font-size: 10px;
+      padding: 6px 12px; border-radius: 4px; cursor: pointer;
+      transition: all 0.3s;
+    }
+    .music-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .music-btn.playing { border-color: var(--accent); color: var(--accent); }
+
+    .generate-btn {
+      display: block; width: 100%;
+      font-family: 'Orbitron', monospace; font-size: 16px; font-weight: 900;
+      padding: 16px; border: 2px solid var(--accent); border-radius: 4px;
+      background: rgba(var(--accent-rgb), 0.1); color: var(--accent); cursor: pointer;
+      text-transform: uppercase; letter-spacing: 3px; transition: all 0.2s; margin-bottom: 30px;
+    }
+    .generate-btn:hover { background: rgba(var(--accent-rgb), 0.2); box-shadow: 0 0 30px rgba(var(--accent-rgb), 0.3); }
+    .generate-btn:active { transform: scale(0.98); }
+    .generate-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .generate-btn.spinning { animation: btnPulse 0.3s ease infinite alternate; pointer-events: none; }
+    @keyframes btnPulse { from { box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.2); } to { box-shadow: 0 0 40px rgba(var(--accent-rgb), 0.5); } }
+
+    /* ── Main Layout ── */
+    .loadout { display: none; }
+    .loadout.visible { display: flex; gap: 24px; }
+
+    .loadout-list { flex: 1; min-width: 0; }
+    .loadout-dummy {
+      width: 280px; flex-shrink: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      position: relative;
+    }
+
+    /* ── Slot Machine Reel ── */
+    .reel-slot {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid #222;
+      border-left: 3px solid #333;
+      border-radius: 4px;
+      margin-bottom: 8px;
+      overflow: hidden;
+      position: relative;
+    }
+    .reel-slot .slot-label {
+      font-family: 'Orbitron', monospace;
+      font-size: 9px; font-weight: 700;
+      color: #555; text-transform: uppercase; letter-spacing: 2px;
+      padding: 8px 14px 0;
+    }
+
+    .reel-window {
+      height: 44px;
+      overflow: hidden;
+      position: relative;
+      padding: 0 14px;
+    }
+    .reel-strip {
+      transition: none;
+      position: relative;
+    }
+    .reel-item {
+      height: 44px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .reel-item-name {
+      font-size: 16px; font-weight: 700;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      line-height: 1.2;
+    }
+    .reel-item-meta {
+      font-size: 11px; color: #666; line-height: 1;
+    }
+
+    .reel-slot.locked {
+      border-left-color: var(--accent);
+      animation: reelLock 0.5s ease;
+    }
+    .reel-slot.locked .reel-item-name {
+      text-shadow: 0 0 10px rgba(255,255,255,0.4);
+    }
+    .warbond-label {
+      display: none;
+      font-family: 'Orbitron', monospace;
+      font-size: 8px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 1px;
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      opacity: 0.7;
+    }
+    .reel-slot.locked .warbond-label,
+    .drip-slot.locked .warbond-label {
+      display: block;
+    }
+    @keyframes reelLock {
+      0% { background: rgba(var(--accent-rgb), 0.15); transform: scale(1.01); }
+      50% { background: rgba(var(--accent-rgb), 0.05); }
+      100% { background: rgba(255,255,255,0.03); transform: scale(1); }
+    }
+
+    /* Glow line on lock */
+    .reel-slot.locked::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      animation: scanLine 0.5s ease forwards;
+    }
+    @keyframes scanLine {
+      from { opacity: 1; } to { opacity: 0; }
+    }
+
+    .section-title {
+      font-family: 'Orbitron', monospace;
+      font-size: 10px; font-weight: 700;
+      color: #444; text-transform: uppercase; letter-spacing: 2px;
+      margin: 16px 0 8px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid #1a1a1a;
+    }
+
+    .slot-tag {
+      display: inline-block;
+      font-family: 'Orbitron', monospace;
+      font-size: 7px; font-weight: 700;
+      padding: 1px 4px; border-radius: 2px;
+      margin-left: 6px; text-transform: uppercase; letter-spacing: 1px;
+      vertical-align: middle;
+    }
+    .tag-weapon { background: rgba(255,106,0,0.2); color: #ff6a00; border: 1px solid rgba(255,106,0,0.3); }
+    .tag-backpack { background: rgba(0,150,255,0.2); color: #0096ff; border: 1px solid rgba(0,150,255,0.3); }
+    .tag-strike { background: rgba(var(--accent-rgb), 0.2); color: var(--accent); border: 1px solid rgba(var(--accent-rgb), 0.3); }
+    .tag-vehicle { background: rgba(100,255,100,0.2); color: #64ff64; border: 1px solid rgba(100,255,100,0.3); }
+
+    .stars { color: var(--accent); font-size: 10px; letter-spacing: 1px; margin-left: 4px; }
+
+    /* ── Dummy / Silhouette ── */
+    .dummy-container {
+      width: 100%; height: 100%;
+      min-height: 500px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .dummy-img {
+      width: 200px;
+      opacity: 0.7;
+      filter: drop-shadow(0 0 15px rgba(var(--accent-rgb), 0.1));
+      transition: all 0.8s;
+      user-select: none;
+      pointer-events: none;
+    }
+    .dummy-img.active {
+      opacity: 1;
+      filter: drop-shadow(0 0 35px var(--dummy-glow, rgba(var(--accent-rgb), 0.3))) brightness(1.1);
+    }
+
+    /* Equipment labels floating around dummy */
+    .dummy-label {
+      position: absolute;
+      font-family: 'Orbitron', monospace;
+      font-size: 8px;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity 0.4s, color 0.4s;
+    }
+    .dummy-label.visible {
+      opacity: 1;
+      color: #888;
+    }
+    .dummy-label .dl-name {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      display: block;
+    }
+    .dummy-label .dl-line {
+      display: block;
+      height: 1px;
+      background: linear-gradient(90deg, var(--accent), transparent);
+      margin: 2px 0;
+      width: 60px;
+    }
+
+    .dl-helmet { top: 12%; left: 50%; transform: translateX(-50%); text-align: center; }
+    .dl-helmet .dl-line { margin: 2px auto; background: linear-gradient(180deg, var(--accent), transparent); width: 1px; height: 10px; }
+    .dl-armor { top: 38%; left: 50%; transform: translateX(-50%); text-align: center; }
+    .dl-armor .dl-line { margin: 2px auto; background: linear-gradient(180deg, var(--accent), transparent); width: 1px; height: 8px; }
+    .dl-cape { top: 30%; right: 5%; text-align: right; }
+    .dl-cape .dl-line { margin-left: auto; background: linear-gradient(270deg, var(--accent), transparent); }
+    /* weapons only on list, not dummy */
+
+    .drip-section {
+      margin-top: 12px;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 6px;
+    }
+    .drip-slot {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid #1a1a1a;
+      border-radius: 3px;
+      padding: 8px;
+      text-align: center;
+      overflow: hidden;
+    }
+    .drip-slot .slot-label {
+      font-family: 'Orbitron', monospace;
+      font-size: 8px; color: #444;
+      text-transform: uppercase; letter-spacing: 1px;
+    }
+    .drip-slot .reel-window { height: 32px; padding: 0 4px; }
+    .drip-slot .reel-item { height: 32px; }
+    .drip-slot .reel-item-name { font-size: 12px; }
+    .drip-slot .reel-item-meta { font-size: 9px; }
+    .drip-slot.locked { border-color: #333; }
+
+    .share-btn {
+      display: block; width: 100%; margin-top: 16px;
+      font-family: 'Orbitron', monospace; font-size: 11px; font-weight: 700;
+      padding: 10px; border: 1px solid #333; border-radius: 4px;
+      background: rgba(255,255,255,0.03); color: #666; cursor: pointer;
+      text-transform: uppercase; letter-spacing: 2px; transition: all 0.2s;
+    }
+    .share-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    .footer {
+      text-align: center; padding: 30px 0 20px;
+      font-family: 'Orbitron', monospace; font-size: 11px; color: #444;
+      text-transform: uppercase; letter-spacing: 2px;
+    }
+    .footer .eagle { font-size: 24px; display: block; margin-bottom: 8px; }
+
+    /* ── Rolling Warbond Tickers ── */
+    .wb-ticker {
+      position: fixed;
+      top: 0;
+      width: 28px;
+      height: 100vh;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 10;
+      opacity: 0.25;
+    }
+    .wb-ticker-left { left: 0; }
+    .wb-ticker-right { right: 0; }
+    .wb-ticker-strip {
+      display: flex;
+      flex-direction: column;
+      animation: tickerScroll 90s linear infinite;
+    }
+    .wb-ticker-right .wb-ticker-strip {
+      animation: tickerScrollReverse 100s linear infinite;
+    }
+    .wb-ticker-item {
+      font-family: 'Orbitron', monospace;
+      font-size: 8px;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      white-space: nowrap;
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      padding: 16px 6px;
+    }
+    .wb-ticker-right .wb-ticker-item {
+      writing-mode: vertical-lr;
+      transform: rotate(180deg);
+    }
+    @keyframes tickerScroll {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(-50%); }
+    }
+    @keyframes tickerScrollReverse {
+      0% { transform: translateY(-50%); }
+      100% { transform: translateY(0); }
+    }
+
+    @media (max-width: 700px) {
+      .loadout.visible { flex-direction: column; }
+      .loadout-dummy { width: 100%; }
+      .dummy-container { min-height: 380px; }
+      .drip-section { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wb-ticker wb-ticker-left" id="tickerLeft"></div>
+  <div class="wb-ticker wb-ticker-right" id="tickerRight"></div>
+  <div class="container">
+    <div class="header">
+      <h1>Loadout Generator</h1>
+      <div class="subtitle">Helldivers 2</div>
+    </div>
+
+    <div class="faction-select">
+      <button class="faction-btn" data-faction="terminids" onclick="selectFaction('terminids')">🐛 Terminids</button>
+      <button class="faction-btn" data-faction="automatons" onclick="selectFaction('automatons')">🤖 Automatons</button>
+      <button class="faction-btn" data-faction="illuminate" onclick="selectFaction('illuminate')">👾 Illuminate</button>
+    </div>
+
+    <div class="warbond-panel">
+      <button class="warbond-toggle" id="warbondToggle" onclick="toggleWarbonds()">
+        📦 Warbonds <span class="arrow">▶</span>
+      </button>
+      <div class="warbond-actions hidden" id="warbondActions">
+        <button class="wb-action-btn" onclick="wbSelectAll()">Select All</button>
+        <button class="wb-action-btn" onclick="wbSelectNone()">Clear All</button>
+      </div>
+      <div class="warbond-grid" id="warbondGrid"></div>
+    </div>
+
+    <button class="music-btn" id="musicBtn" onclick="toggleMusic()">🔇 Music</button>
+    <button class="generate-btn" id="generateBtn" disabled onclick="generate()">Deploy Loadout</button>
+
+    <audio id="bgm" preload="auto"></audio>
+    <audio id="spinSfx" src="spin.mp3" preload="auto"></audio>
+    <audio id="lockSfx" src="lock.mp3" preload="auto"></audio>
+
+    <div class="loadout" id="loadout">
+      <!-- Left: Slot list -->
+      <div class="loadout-list">
+        <div class="section-title">⚔️ Weapons</div>
+        <div id="reel-primary" class="reel-slot">
+          <div class="slot-label">🔫 Primary</div>
+          <div class="reel-window"><div class="reel-strip"></div></div>
+          <div class="warbond-label"></div>
+        </div>
+        <div id="reel-secondary" class="reel-slot">
+          <div class="slot-label">🔫 Secondary</div>
+          <div class="reel-window"><div class="reel-strip"></div></div>
+          <div class="warbond-label"></div>
+        </div>
+        <div id="reel-grenade" class="reel-slot">
+          <div class="slot-label">💣 Grenade</div>
+          <div class="reel-window"><div class="reel-strip"></div></div>
+          <div class="warbond-label"></div>
+        </div>
+
+        <div class="section-title">📡 Stratagems</div>
+        <div id="stratSlots"></div>
+
+        <div class="section-title">👔 Drip</div>
+        <div class="drip-section">
+          <div id="reel-armor" class="drip-slot">
+            <div class="slot-label">🛡️ Armor</div>
+            <div class="reel-window"><div class="reel-strip"></div></div>
+            <div class="warbond-label"></div>
+          </div>
+          <div id="reel-helmet" class="drip-slot">
+            <div class="slot-label">⛑️ Helmet</div>
+            <div class="reel-window"><div class="reel-strip"></div></div>
+            <div class="warbond-label"></div>
+          </div>
+          <div id="reel-cape" class="drip-slot">
+            <div class="slot-label">🦸 Cape</div>
+            <div class="reel-window"><div class="reel-strip"></div></div>
+            <div class="warbond-label"></div>
+          </div>
+        </div>
+
+        <button class="share-btn" onclick="shareCard()">📋 Copy as Image</button>
+      </div>
+
+      <!-- Right: Dummy -->
+      <div class="loadout-dummy">
+        <div class="dummy-container" id="dummyContainer">
+          <img class="dummy-img" id="dummySvg" src="helldiver.png" alt="SEAF Helldiver"/>
+          <svg style="display:none" viewBox="0 0 240 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="bodyGrad" x1="120" y1="0" x2="120" y2="520" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="#ffc800" stop-opacity="0.35"/>
+                <stop offset="0.5" stop-color="#ffc800" stop-opacity="0.18"/>
+                <stop offset="1" stop-color="#ffc800" stop-opacity="0.06"/>
+              </linearGradient>
+              <linearGradient id="visorGrad" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0" stop-color="#ffc800" stop-opacity="0.1"/>
+                <stop offset="0.5" stop-color="#ffc800" stop-opacity="0.5"/>
+                <stop offset="1" stop-color="#ffc800" stop-opacity="0.1"/>
+              </linearGradient>
+              <linearGradient id="metalGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#ffc800" stop-opacity="0.2"/>
+                <stop offset="1" stop-color="#ffc800" stop-opacity="0.05"/>
+              </linearGradient>
+              <filter id="glow">
+                <feGaussianBlur stdDeviation="2" result="blur"/>
+                <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
+              <clipPath id="visorClip"><rect x="82" y="42" width="56" height="13" rx="3"/></clipPath>
+            </defs>
+
+            <!-- ═══ CAPE (behind body) ═══ -->
+            <path d="M78 108 C72 160 58 220 50 300 Q46 340 52 370 L60 372 Q56 340 60 300 C66 230 74 165 80 115 Z" fill="#ffc800" fill-opacity="0.05" stroke="#ffc800" stroke-opacity="0.08"/>
+            <path d="M162 108 C168 160 182 220 190 300 Q194 340 188 370 L180 372 Q184 340 180 300 C174 230 166 165 160 115 Z" fill="#ffc800" fill-opacity="0.05" stroke="#ffc800" stroke-opacity="0.08"/>
+            <!-- Cape fold lines -->
+            <path d="M60 200 Q56 260 54 320" stroke="#ffc800" stroke-opacity="0.04" fill="none"/>
+            <path d="M180 200 Q184 260 186 320" stroke="#ffc800" stroke-opacity="0.04" fill="none"/>
+
+            <!-- ═══ BACKPACK ═══ -->
+            <rect x="72" y="118" width="26" height="55" rx="5" fill="url(#metalGrad)" stroke="#ffc800" stroke-opacity="0.18" stroke-width="0.8"/>
+            <!-- Backpack details -->
+            <rect x="76" y="123" width="18" height="14" rx="2" fill="#ffc800" fill-opacity="0.06" stroke="#ffc800" stroke-opacity="0.1" stroke-width="0.5"/>
+            <rect x="76" y="141" width="18" height="8" rx="1.5" fill="#ffc800" fill-opacity="0.04" stroke="#ffc800" stroke-opacity="0.08" stroke-width="0.5"/>
+            <rect x="76" y="153" width="18" height="8" rx="1.5" fill="#ffc800" fill-opacity="0.04" stroke="#ffc800" stroke-opacity="0.08" stroke-width="0.5"/>
+            <!-- Backpack straps -->
+            <path d="M82 118 L82 108" stroke="#ffc800" stroke-opacity="0.12" stroke-width="2"/>
+            <path d="M92 118 L95 108" stroke="#ffc800" stroke-opacity="0.12" stroke-width="2"/>
+            <!-- Antenna -->
+            <line x1="94" y1="118" x2="97" y2="100" stroke="#ffc800" stroke-opacity="0.15" stroke-width="1"/>
+            <circle cx="97" cy="98" r="2" fill="#ffc800" fill-opacity="0.3"/>
+
+            <!-- ═══ HELMET ═══ -->
+            <!-- Base shape -->
+            <path d="M84 18 C84 8 92 2 110 2 C128 2 148 8 148 28 L150 50 C150 68 142 80 120 82 C98 80 86 68 84 55 Z" fill="url(#bodyGrad)" stroke="#ffc800" stroke-opacity="0.3" stroke-width="0.8"/>
+            <!-- Helmet top ridge -->
+            <path d="M100 4 C108 0 128 0 136 6" stroke="#ffc800" stroke-opacity="0.15" stroke-width="1.5" fill="none"/>
+            <!-- Helmet side panels -->
+            <path d="M86 30 L84 55" stroke="#ffc800" stroke-opacity="0.12" fill="none"/>
+            <path d="M148 25 L150 50" stroke="#ffc800" stroke-opacity="0.12" fill="none"/>
+            <!-- Forehead plate -->
+            <path d="M92 18 L144 18 L146 28 L90 30 Z" fill="#ffc800" fill-opacity="0.06" stroke="#ffc800" stroke-opacity="0.12" stroke-width="0.5"/>
+            <!-- Visor -->
+            <rect x="82" y="42" width="56" height="13" rx="3" fill="url(#visorGrad)" stroke="#ffc800" stroke-opacity="0.4" stroke-width="0.8" filter="url(#glow)"/>
+            <!-- Visor reflection -->
+            <line x1="88" y1="45" x2="105" y2="45" stroke="#ffc800" stroke-opacity="0.2" stroke-width="0.5"/>
+            <line x1="110" y1="48" x2="130" y2="48" stroke="#ffc800" stroke-opacity="0.15" stroke-width="0.5"/>
+            <!-- Chin guard -->
+            <path d="M92 58 L90 70 Q92 76 110 78 Q128 76 142 70 L140 58" fill="url(#metalGrad)" stroke="#ffc800" stroke-opacity="0.15" stroke-width="0.5"/>
+            <!-- Breather vents -->
+            <rect x="96" y="62" width="4" height="6" rx="1" fill="#ffc800" fill-opacity="0.08"/>
+            <rect x="103" y="62" width="4" height="6" rx="1" fill="#ffc800" fill-opacity="0.08"/>
+            <rect x="110" y="62" width="4" height="6" rx="1" fill="#ffc800" fill-opacity="0.08"/>
+            <rect x="117" y="62" width="4" height="6" rx="1" fill="#ffc800" fill-opacity="0.08"/>
+            <rect x="124" y="62" width="4" height="6" rx="1" fill="#ffc800" fill-opacity="0.08"/>
+            <!-- Ear pieces -->
+            <ellipse cx="84" cy="44" rx="5" ry="10" fill="url(#metalGrad)" stroke="#ffc800" stroke-opacity="0.15" stroke-width="0.5"/>
+            <ellipse cx="150" cy="40" rx="5" ry="10" fill="url(#metalGrad)" stroke="#ffc800" stroke-opacity="0.15" stroke-width="0.5"/>
+            <!-- Helmet light -->
+            <circle cx="90" cy="32" r="3" fill="#ffc800" fill-opacity="0.15" stroke="#ffc800" stroke-opacity="0.25" stroke-width="0.5"/>
+
+            <!-- ═══ NECK ═══ -->
+            <path d="M100 80 L98 95 L138 95 L136 78" fill="url(#bodyGrad)" stroke="#ffc800" stroke-opacity="0.1"/>
+            <!-- Neck seal rings -->
+            <ellipse cx="118" cy="85" rx="18" ry="4" fill="none" stroke="#ffc800" stroke-opacity="0.08" stroke-width="0.5"/>
+            <ellipse cx="118" cy="90" rx="19" ry="4" fill="none" stroke="#ffc800" stroke-opacity="0.06" stroke-width="0.5"/>
+
+            <!-- ═══ TORSO / CHEST ARMOR ═══ -->
+            <path d="M72 98 L168 98 L174 150 L176 200 L172 250 L68 250 L64 200 L66 150 Z" fill="url(#bodyGrad)" stroke="#ffc800" stroke-opacity="0.25" stroke-width="0.8"/>
+            <!-- Center seam -->
+            <line x1="120" y1="100" x2="120" y2="248" stroke="#ffc800" stroke-opacity="0.06"/>
+            <!-- Upper chest plates -->
+            <path d="M80 102 L118 102 L116 135 L78 138 Z" fill="#ffc800" fill-opacity="0.06" stroke="#ffc800" stroke-opacity="0.12" stroke-width="0.5"/>
+            <path d="M122 102 L160 102 L162 138 L124 135 Z" fill="#ffc800" fill-opacity="0.06" stroke="#ffc800" stroke-opacity="0.12" stroke-width="0.5"/>
+            <!-- Super Earth eagle emblem -->
+            <circle cx="120" cy="118" r="10" fill="none" stroke="#ffc800" stroke-opacity="0.15" stroke-width="0.5"/>
+            <path d="M115 118 L120 112 L125 118 L120 122 Z" fill="#ffc800" fill-opacity="0.1"/>
+            <!-- Abdominal armor plates -->
+            <rect x="82" y="145" width="34" height="18" rx="2" fill="#ffc800" fill-opacity="0.04" stroke="#ffc800" stroke-opacity="0.08" stroke-width="0.5"/>
+            <rect x="124" y="145" width="34" height="18" rx="2" fill="#ffc800" fill-opacity="0.04" stroke="#ffc800" stroke-opacity="0.08" stroke-width="0.5"/>
+            <rect x="86" y="168" width="28" height="14" rx="2" fill="#ffc800" fill-opacity="0.03" stroke="#ffc800" stroke-opacity="0.06" stroke-width="0.5"/>
+            <rect x="126" y="168" width="28" height="14" rx="2" fill="#ffc800" fill-opacity="0.03" stroke="#ffc800" stroke-opacity="0.06" stroke-width="0.5"/>
+            <!-- Collar armor -->
+            <path d="M78 98 L72 108 Q68 100 78 95" fill="url(#metalGrad)" stroke="#ffc800" stroke-opacity="0.1"/>
+            <path d="M158 98 L168 108 Q172 100 158 95" fill="url(#metalGrad)" stroke="#ffc800" stroke-opacity="0.1"/>
+
+            <!-- ═══ SHOULDER PADS ═══ -->
+            <!-- Left shoulder -->
+            <path d="M68 96 L48 104 L42 120 L48 136 L70 128 Z" fill="url(#metalGrad)" stroke="#ffc800" stroke-opacity="0.2" stroke-width="0.8"/>
+            <path d="M52 108 L50 114 L66 118" stroke="#ffc800" stroke-opacity="0.08" fill="none" stroke-width="0.5"/>
+            <path d="M50 118 L48 126 L66 124" stroke="#ffc800" stroke-opacity="0.06" fill="none" stroke-width="0.5"/>
+            <!-- Right shoulder -->
+            <path d="M172 96 L192 104 L198 120 L192 136 L170 128 Z" fill="url(#metalGrad)" stroke="#ffc800" stroke-opacity="0.2" stroke-width="0.8"/>
+            <path d="M188 108 L190 114 L174 118" stroke="#ffc800" stroke-opacity="0.08" fill="none" stroke-width="0.5"/>
+            <path d="M190 118 L192 126 L174 124" stroke="#ffc800" stroke-opacity="0.06" fill="none" stroke-width="0.5"/>
+
+            <!-- ═══ ARMS ═══ -->
+            <!-- Left arm -->
+            <path d="M68 128 L48 138 L36 180 L32 220 L44 224 L50 185 L58 148 L72 135" fill="url(#bodyGrad)" stroke="#ffc800" stroke-opacity="0.18" stroke-width="0.8"/>
+            <!-- Left elbow pad -->
+            <ellipse cx="42" cy="178" rx="8" ry="10" fill="url(#metalGrad)" stroke="#ffc800" stroke-opacity="0.12" stroke-width="0.5"/>
+            <!-- Left forearm armor -->
+            <path d="M36 185 L34 215 L46 218 L48 190" fill="url(#metalGrad)" stroke="#ffc800" stroke-opacity="0.1" stroke-width="0.5"/>
+            <!-- Left hand -->
+            <path d="M30 222 L26 230 L28 236 L38 234 L42 226 L36 222" fill="url(#bodyGrad)" stroke="#ffc800" stroke-opacity="0.12"/>
+            <!-- Left glove detail -->
+            <line x1="30" y1="228" x2="36" y2="228" stroke="#ffc800" stroke-opacity="0.06" stroke-width="0.5"/>
+
+            <!-- Right arm (holding weapon) -->
+            <path d="M172 128 L192 138 L200 175 L196 210 L184 214 L180 180 L180 148 L170 135" fill="url(#bodyGrad)" stroke="#ffc800" stroke-opacity="0.18" stroke-width="0.8"/>
+            <!-- Right elbow pad -->
+            <ellipse cx="198" cy="175" rx="8" ry="10" fill="url(#metalGrad)" stroke="#ffc800" stroke-opacity="0.12" stroke-width="0.5"/>
+            <!-- Right forearm armor -->
+            <path d="M198 182 L196 208 L186 210 L184 186" fill="url(#metalGrad)" stroke="#ffc800" stroke-opacity="0.1" stroke-width="0.5"/>
+            <!-- Right hand -->
+            <path d="M192 212 L196 220 L194 226 L184 224 L180 216 L186 212" fill="url(#bodyGrad)" stroke="#ffc800" stroke-opacity="0.12"/>
+
+            <!-- ═══ WEAPON (Primary - Rifle) ═══ -->
+            <g transform="rotate(12, 190, 180)">
+              <!-- Stock -->
+              <path d="M182 130 L178 142 L182 144 L186 132 Z" fill="#ffc800" fill-opacity="0.12" stroke="#ffc800" stroke-opacity="0.18" stroke-width="0.5"/>
+              <!-- Receiver -->
+              <rect x="179" y="144" width="8" height="50" rx="1.5" fill="#ffc800" fill-opacity="0.12" stroke="#ffc800" stroke-opacity="0.2" stroke-width="0.6"/>
+              <!-- Barrel -->
+              <rect x="181" y="194" width="4" height="40" rx="1" fill="#ffc800" fill-opacity="0.1" stroke="#ffc800" stroke-opacity="0.15" stroke-width="0.5"/>
+              <!-- Muzzle -->
+              <rect x="180" y="232" width="6" height="8" rx="1" fill="#ffc800" fill-opacity="0.08" stroke="#ffc800" stroke-opacity="0.12" stroke-width="0.5"/>
+              <!-- Scope -->
+              <rect x="180" y="148" width="10" height="5" rx="1.5" fill="#ffc800" fill-opacity="0.08" stroke="#ffc800" stroke-opacity="0.12" stroke-width="0.5"/>
+              <circle cx="191" cy="150" r="2" fill="#ffc800" fill-opacity="0.15"/>
+              <!-- Magazine -->
+              <rect x="176" y="165" width="5" height="16" rx="1" fill="#ffc800" fill-opacity="0.1" stroke="#ffc800" stroke-opacity="0.12" stroke-width="0.5"/>
+              <!-- Grip -->
+              <rect x="180" y="178" width="5" height="12" rx="1" fill="#ffc800" fill-opacity="0.08" stroke="#ffc800" stroke-opacity="0.1" stroke-width="0.5" transform="rotate(-15, 182, 184)"/>
+              <!-- Rail -->
+              <line x1="181" y1="155" x2="181" y2="190" stroke="#ffc800" stroke-opacity="0.06" stroke-width="0.5"/>
+              <line x1="185" y1="155" x2="185" y2="190" stroke="#ffc800" stroke-opacity="0.06" stroke-width="0.5"/>
+            </g>
+
+            <!-- ═══ BELT / WAIST ═══ -->
+            <rect x="68" y="244" width="104" height="14" rx="3" fill="url(#metalGrad)" stroke="#ffc800" stroke-opacity="0.2" stroke-width="0.8"/>
+            <!-- Belt buckle -->
+            <rect x="110" y="246" width="16" height="10" rx="2" fill="#ffc800" fill-opacity="0.12" stroke="#ffc800" stroke-opacity="0.2" stroke-width="0.5"/>
+            <circle cx="118" cy="251" r="3" fill="#ffc800" fill-opacity="0.08" stroke="#ffc800" stroke-opacity="0.15" stroke-width="0.5"/>
+            <!-- Belt pouches -->
+            <rect x="74" y="246" width="14" height="12" rx="2" fill="#ffc800" fill-opacity="0.06" stroke="#ffc800" stroke-opacity="0.1" stroke-width="0.5"/>
+            <rect x="92" y="246" width="12" height="10" rx="2" fill="#ffc800" fill-opacity="0.05" stroke="#ffc800" stroke-opacity="0.08" stroke-width="0.5"/>
+            <!-- Grenade on belt -->
+            <ellipse cx="156" cy="250" rx="7" ry="9" fill="#ffc800" fill-opacity="0.08" stroke="#ffc800" stroke-opacity="0.15" stroke-width="0.5"/>
+            <line x1="156" y1="243" x2="156" y2="246" stroke="#ffc800" stroke-opacity="0.12" stroke-width="1"/>
+            <!-- Sidearm holster -->
+            <rect x="132" y="248" width="8" height="18" rx="2" fill="#ffc800" fill-opacity="0.06" stroke="#ffc800" stroke-opacity="0.1" stroke-width="0.5"/>
+            <rect x="133" y="249" width="6" height="8" rx="1" fill="#ffc800" fill-opacity="0.04"/>
+
+            <!-- ═══ LEGS ═══ -->
+            <!-- Left leg -->
+            <path d="M78 258 L72 320 L68 370 L62 410 L80 412 L84 375 L88 325 L94 258" fill="url(#bodyGrad)" stroke="#ffc800" stroke-opacity="0.18" stroke-width="0.8"/>
+            <!-- Left thigh armor -->
+            <path d="M80 262 L74 300 L86 302 L92 264" fill="url(#metalGrad)" stroke="#ffc800" stroke-opacity="0.1" stroke-width="0.5"/>
+            <line x1="84" y1="268" x2="82" y2="295" stroke="#ffc800" stroke-opacity="0.05"/>
+            <!-- Left knee pad -->
+            <path d="M68 318 Q64 330 66 345 L72 348 Q78 336 76 322 Z" fill="url(#metalGrad)" stroke="#ffc800" stroke-opacity="0.15" stroke-width="0.6"/>
+            <circle cx="71" cy="333" r="4" fill="#ffc800" fill-opacity="0.06" stroke="#ffc800" stroke-opacity="0.1" stroke-width="0.5"/>
+            <!-- Left shin guard -->
+            <path d="M66 350 L64 395 L76 398 L78 355" fill="url(#metalGrad)" stroke="#ffc800" stroke-opacity="0.1" stroke-width="0.5"/>
+            <line x1="70" y1="358" x2="68" y2="388" stroke="#ffc800" stroke-opacity="0.05"/>
+
+            <!-- Right leg -->
+            <path d="M146 258 L152 320 L156 370 L162 410 L178 412 L174 375 L168 325 L160 258" fill="url(#bodyGrad)" stroke="#ffc800" stroke-opacity="0.18" stroke-width="0.8"/>
+            <!-- Right thigh armor -->
+            <path d="M148 262 L154 300 L166 298 L158 264" fill="url(#metalGrad)" stroke="#ffc800" stroke-opacity="0.1" stroke-width="0.5"/>
+            <line x1="156" y1="268" x2="158" y2="295" stroke="#ffc800" stroke-opacity="0.05"/>
+            <!-- Right knee pad -->
+            <path d="M154 318 Q158 330 156 345 L162 348 Q168 336 166 322 Z" fill="url(#metalGrad)" stroke="#ffc800" stroke-opacity="0.15" stroke-width="0.6"/>
+            <circle cx="160" cy="333" r="4" fill="#ffc800" fill-opacity="0.06" stroke="#ffc800" stroke-opacity="0.1" stroke-width="0.5"/>
+            <!-- Right shin guard -->
+            <path d="M158 350 L160 395 L172 398 L170 355" fill="url(#metalGrad)" stroke="#ffc800" stroke-opacity="0.1" stroke-width="0.5"/>
+
+            <!-- ═══ BOOTS ═══ -->
+            <!-- Left boot -->
+            <path d="M60 408 L56 430 L52 440 L44 442 L42 446 L82 446 L84 440 L82 414" fill="url(#metalGrad)" stroke="#ffc800" stroke-opacity="0.2" stroke-width="0.8"/>
+            <line x1="58" y1="420" x2="80" y2="420" stroke="#ffc800" stroke-opacity="0.08" stroke-width="0.5"/>
+            <path d="M56 432 L54 440 L78 440 L80 432" fill="#ffc800" fill-opacity="0.04" stroke="#ffc800" stroke-opacity="0.06" stroke-width="0.5"/>
+            <!-- Boot tread -->
+            <line x1="48" y1="444" x2="78" y2="444" stroke="#ffc800" stroke-opacity="0.06" stroke-width="0.5"/>
+
+            <!-- Right boot -->
+            <path d="M160 408 L164 430 L168 440 L176 442 L178 446 L158 446 L156 440 L156 414" fill="url(#metalGrad)" stroke="#ffc800" stroke-opacity="0.2" stroke-width="0.8"/>
+            <line x1="158" y1="420" x2="174" y2="420" stroke="#ffc800" stroke-opacity="0.08" stroke-width="0.5"/>
+            <path d="M162 432 L164 440 L174 440 L172 432" fill="#ffc800" fill-opacity="0.04" stroke="#ffc800" stroke-opacity="0.06" stroke-width="0.5"/>
+
+            <!-- ═══ EXTRA DETAILS ═══ -->
+            <!-- Ammo pouches on left thigh -->
+            <rect x="72" y="270" width="8" height="12" rx="1.5" fill="#ffc800" fill-opacity="0.06" stroke="#ffc800" stroke-opacity="0.1" stroke-width="0.4"/>
+            <rect x="72" y="285" width="8" height="12" rx="1.5" fill="#ffc800" fill-opacity="0.05" stroke="#ffc800" stroke-opacity="0.08" stroke-width="0.4"/>
+            <!-- Dog tags -->
+            <line x1="115" y1="95" x2="112" y2="108" stroke="#ffc800" stroke-opacity="0.1" stroke-width="0.5"/>
+            <ellipse cx="112" cy="110" rx="3" ry="4" fill="#ffc800" fill-opacity="0.08" stroke="#ffc800" stroke-opacity="0.12" stroke-width="0.4"/>
+
+            <!-- Highlight overlays removed -->
+            <!-- Weapon highlight -->
+            <g id="hlWeapon" opacity="0">
+              <g transform="rotate(12, 190, 180)">
+                <rect x="178" y="130" width="10" height="110" rx="2" fill="#ffc800" fill-opacity="0.1" stroke="#ffc800" stroke-opacity="0.4" stroke-width="1" filter="url(#glow)"/>
+              </g>
+              <animate attributeName="opacity" from="0" to="1" dur="0.6s" fill="freeze" begin="indefinite" id="hlWeaponAnim"/>
+            </g>
+            <!-- Secondary highlight (holster) -->
+            <g id="hlSecondary" opacity="0">
+              <rect x="130" y="246" width="12" height="22" rx="2" fill="#ffc800" fill-opacity="0.12" stroke="#ffc800" stroke-opacity="0.4" stroke-width="1" filter="url(#glow)"/>
+              <animate attributeName="opacity" from="0" to="1" dur="0.6s" fill="freeze" begin="indefinite" id="hlSecondaryAnim"/>
+            </g>
+            <!-- Grenade highlight -->
+            <g id="hlGrenade" opacity="0">
+              <ellipse cx="156" cy="250" rx="9" ry="11" fill="#ffc800" fill-opacity="0.12" stroke="#ffc800" stroke-opacity="0.4" stroke-width="1" filter="url(#glow)"/>
+              <animate attributeName="opacity" from="0" to="1" dur="0.6s" fill="freeze" begin="indefinite" id="hlGrenadeAnim"/>
+            </g>
+
+            <!-- ═══ GROUND SHADOW ═══ -->
+            <ellipse cx="120" cy="450" rx="60" ry="6" fill="#ffc800" fill-opacity="0.04"/>
+
+            <!-- ═══ AMBIENT PARTICLES ═══ -->
+            <circle cx="30" cy="100" r="1" fill="#ffc800" fill-opacity="0.2">
+              <animate attributeName="opacity" values="0.2;0.05;0.2" dur="3s" repeatCount="indefinite"/>
+            </circle>
+            <circle cx="210" cy="200" r="0.8" fill="#ffc800" fill-opacity="0.15">
+              <animate attributeName="opacity" values="0.15;0.03;0.15" dur="4s" repeatCount="indefinite"/>
+            </circle>
+            <circle cx="20" cy="350" r="0.6" fill="#ffc800" fill-opacity="0.1">
+              <animate attributeName="opacity" values="0.1;0.02;0.1" dur="5s" repeatCount="indefinite"/>
+            </circle>
+            <circle cx="220" cy="400" r="1" fill="#ffc800" fill-opacity="0.12">
+              <animate attributeName="opacity" values="0.12;0.03;0.12" dur="3.5s" repeatCount="indefinite"/>
+            </circle>
+          </svg>
+
+          <!-- Floating labels removed -->
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span class="eagle">🦅</span>
+      For Super Earth! Democracy never sleeps.
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="data.js"></script>
+  <script src="generate.js"></script>
+  <script>
+    let selectedFaction = null;
+    let isSpinning = false;
+    let selectedWarbonds = new Set();
+    let allWarbonds = [];
+    const spinNames = { primary:[], secondary:[], grenade:[], strat:[], armor:[], helmet:[], cape:[] };
+
+    Object.assign(spinNames, getNames());
+
+    // Load warbonds
+    allWarbonds = getWarbonds();
+    {
+      const saved = localStorage.getItem('hd2-warbonds');
+      if (saved) {
+        try { selectedWarbonds = new Set(JSON.parse(saved)); } catch(e) {}
+      } else {
+        selectedWarbonds = new Set(allWarbonds);
+      }
+      renderWarbonds();
+      buildTickers();
+    }
+
+    function renderWarbonds() {
+      const grid = document.getElementById('warbondGrid');
+      grid.innerHTML = '';
+      allWarbonds.forEach(wb => {
+        const item = document.createElement('div');
+        item.className = 'warbond-item';
+        const id = 'wb-' + wb.replace(/[^a-z0-9]/gi, '-');
+        item.innerHTML = `<input type="checkbox" id="${id}" ${selectedWarbonds.has(wb)?'checked':''}>
+          <label for="${id}">${wb}</label>`;
+        item.querySelector('input').addEventListener('change', e => {
+          if (e.target.checked) selectedWarbonds.add(wb);
+          else selectedWarbonds.delete(wb);
+          saveWarbonds();
+        });
+        grid.appendChild(item);
+      });
+    }
+
+    function saveWarbonds() {
+      localStorage.setItem('hd2-warbonds', JSON.stringify([...selectedWarbonds]));
+    }
+
+    function toggleWarbonds() {
+      const toggle = document.getElementById('warbondToggle');
+      const grid = document.getElementById('warbondGrid');
+      const actions = document.getElementById('warbondActions');
+      const isOpen = toggle.classList.toggle('open');
+      grid.classList.toggle('open', isOpen);
+      actions.classList.toggle('hidden', !isOpen);
+    }
+
+    function wbSelectAll() {
+      selectedWarbonds = new Set(allWarbonds);
+      saveWarbonds();
+      renderWarbonds();
+    }
+
+    function buildTickers() {
+      const names = allWarbonds.length ? allWarbonds : ['WARBOND'];
+      ['tickerLeft', 'tickerRight'].forEach(id => {
+        const el = document.getElementById(id);
+        const strip = document.createElement('div');
+        strip.className = 'wb-ticker-strip';
+        // Duplicate list 4x so it loops seamlessly
+        for (let r = 0; r < 4; r++) {
+          names.forEach(name => {
+            const item = document.createElement('div');
+            item.className = 'wb-ticker-item';
+            item.textContent = name;
+            strip.appendChild(item);
+          });
+        }
+        el.innerHTML = '';
+        el.appendChild(strip);
+      });
+    }
+
+    function wbSelectNone() {
+      selectedWarbonds.clear();
+      saveWarbonds();
+      renderWarbonds();
+    }
+
+    const ITEM_H = 44;
+    const DRIP_H = 32;
+
+    function stars(r) { return r ? '★'.repeat(r)+'☆'.repeat(3-r) : ''; }
+    function randomFrom(a) { return a[Math.floor(Math.random()*a.length)]||'???'; }
+    function sleep(ms) { return new Promise(r=>setTimeout(r,ms)); }
+    function tagHtml(t) {
+      const c={'Support Weapon':'tag-weapon','Backpack':'tag-backpack','Strike':'tag-strike','Vehicle':'tag-vehicle'}[t]||'tag-strike';
+      return `<span class="slot-tag ${c}">${t}</span>`;
+    }
+
+    function selectFaction(f) {
+      selectedFaction = f;
+      document.querySelectorAll('.faction-btn').forEach(b=>b.classList.toggle('active',b.dataset.faction===f));
+      document.getElementById('generateBtn').disabled = false;
+
+      // Set UI accent color based on faction
+      const accents = {
+        terminids:   { hex: '#ff6a00', rgb: '255, 106, 0' },
+        automatons:  { hex: '#ff2020', rgb: '255, 32, 32' },
+        illuminate:  { hex: '#a855f7', rgb: '168, 85, 247' },
+      };
+      const a = accents[f];
+      document.documentElement.style.setProperty('--accent', a.hex);
+      document.documentElement.style.setProperty('--accent-rgb', a.rgb);
+
+      // Set dummy glow color
+      const colors = {terminids:'rgba(255,106,0,0.4)',automatons:'rgba(255,32,32,0.4)',illuminate:'rgba(168,85,247,0.4)'};
+      document.getElementById('dummySvg').style.setProperty('--dummy-glow', colors[f]);
+      generate();
+    }
+
+    // Build a reel strip with N random items + final item at the end
+    const WARBOND_COLORS = {
+      'Base Game':        '#C0C0C0',
+      'Helldivers Mobilize': '#FFD700',
+      'Steeled Veterans':  '#7B8794',
+      'Cutting Edge':      '#00E5FF',
+      'Democratic Detonation': '#FF4500',
+      'Polar Patriots':    '#87CEEB',
+      'Viper Commandos':   '#32CD32',
+      'Servants of Freedom': '#FF6347',
+      'Chemical Agents':   '#ADFF2F',
+      'Truth Enforcers':   '#DA70D6',
+      'Urban Legends':     '#FF8C00',
+      'Masters of Ceremony': '#FFB6C1',
+      'Control Group':     '#8A2BE2',
+      'Force of Law':      '#4169E1',
+      'Righteous Revenants': '#DC143C',
+      'Dust Devils':       '#DEB887',
+      'Siege Breakers':    '#FF69B4',
+      'Python Commandos':  '#228B22',
+      'Redacted Regiment': '#2F4F4F',
+      'Obedient Democracy Support Troopers': '#6495ED',
+      "Freedom's Flame":   '#FF5733',
+      'Halo':              '#4CAF50',
+      'Killzone 2':        '#B22222',
+      'Deluxe Edition':    '#FFD700',
+    };
+    const PASSIVE_COLORS = {
+      'Scout':              '#4FC3F7',
+      'Fortified':          '#FF8A65',
+      'Engineering Kit':    '#FFD54F',
+      'Democracy Protects': '#E57373',
+      'Extra Padding':      '#81C784',
+      'Med-Kit':            '#F48FB1',
+      'Servo-Assisted':     '#9575CD',
+    };
+    function warbondColor(wb) { return PASSIVE_COLORS[wb] || WARBOND_COLORS[wb] || '#FFFFFF'; }
+
+    function buildReel(pool, finalName, finalMeta, count, itemH, finalWarbond) {
+      const strip = document.createElement('div');
+      strip.className = 'reel-strip';
+      for (let i = 0; i < count; i++) {
+        const pick = randomFrom(pool);
+        const item = document.createElement('div');
+        item.className = 'reel-item';
+        item.style.height = itemH + 'px';
+        const name = typeof pick === 'object' ? pick.name : pick;
+        const color = typeof pick === 'object' ? warbondColor(pick.warbond) : 'var(--accent)';
+        item.innerHTML = `<div class="reel-item-name" style="color:${color}">${name}</div>`;
+        strip.appendChild(item);
+      }
+      // Final item
+      const fin = document.createElement('div');
+      fin.className = 'reel-item';
+      fin.style.height = itemH + 'px';
+      const finalColor = finalWarbond ? warbondColor(finalWarbond) : 'var(--accent)';
+      fin.innerHTML = `<div class="reel-item-name" style="color:${finalColor}">${finalName}</div>${finalMeta ? `<div class="reel-item-meta">${finalMeta}</div>` : ''}`;
+      strip.appendChild(fin);
+      return strip;
+    }
+
+    function animateReel(slotEl, strip, count, itemH, duration) {
+      return new Promise(resolve => {
+        const window = slotEl.querySelector('.reel-window');
+        window.innerHTML = '';
+        window.appendChild(strip);
+
+        const totalDist = count * itemH;
+        strip.style.transition = 'none';
+        strip.style.transform = 'translateY(0)';
+
+        // Force reflow
+        strip.offsetHeight;
+
+        // Animate with cubic-bezier for slot machine feel (fast start, slow end)
+        strip.style.transition = `transform ${duration}ms cubic-bezier(0.15, 0.85, 0.35, 1)`;
+        strip.style.transform = `translateY(-${totalDist}px)`;
+
+        // Play thud slightly before lock for better feel
+        setTimeout(() => {
+          const lsfx = new Audio('lock.mp3');
+          lsfx.volume = 0.45;
+          lsfx.play().catch(()=>{});
+        }, duration - 150);
+
+        setTimeout(() => {
+          slotEl.classList.add('locked');
+          resolve();
+        }, duration);
+      });
+    }
+
+    async function generate() {
+      if (!selectedFaction || isSpinning) return;
+      isSpinning = true;
+
+      // Slot machine sound
+      const sfx = document.getElementById('spinSfx');
+      sfx.currentTime = 0;
+      sfx.volume = 0.5;
+      sfx.play().catch(()=>{});
+
+      const btn = document.getElementById('generateBtn');
+      btn.classList.add('spinning');
+      btn.textContent = 'DEPLOYING...';
+
+      const loadoutEl = document.getElementById('loadout');
+      loadoutEl.classList.add('visible');
+
+      const svg = document.getElementById('dummySvg');
+      svg.classList.remove('active');
+
+      // Reset all labels and highlights
+      document.querySelectorAll('.dummy-label').forEach(l => l.classList.remove('visible'));
+      resetHighlights();
+
+      // Reset locked states
+      document.querySelectorAll('.reel-slot, .drip-slot').forEach(s => s.classList.remove('locked'));
+
+      // Generate result locally
+      const data = generateLoadout(selectedFaction, selectedWarbonds);
+      const f = data.faction;
+
+      const SPIN_COUNT = 25; // items to scroll through
+
+      function setWarbondLabel(slotEl, wb) {
+        const lbl = slotEl.querySelector('.warbond-label');
+        if (lbl && wb) { lbl.textContent = wb; lbl.style.color = warbondColor(wb); }
+      }
+
+      // Primary
+      const pMeta = `${data.primary.type} · AP ${data.primary.ap} <span class="stars">${stars(data.primary[f])}</span>`;
+      const pStrip = buildReel(spinNames.primary, data.primary.name, pMeta, SPIN_COUNT, ITEM_H, data.primary.warbond);
+      await animateReel(document.getElementById('reel-primary'), pStrip, SPIN_COUNT, ITEM_H, 1800);
+      setWarbondLabel(document.getElementById('reel-primary'), data.primary.warbond);
+      await sleep(200);
+
+      // Secondary
+      const sMeta = `${data.secondary.type}${data.secondary.ap?' · AP '+data.secondary.ap:''} <span class="stars">${stars(data.secondary[f])}</span>`;
+      const sStrip = buildReel(spinNames.secondary, data.secondary.name, sMeta, SPIN_COUNT, ITEM_H, data.secondary.warbond);
+      await animateReel(document.getElementById('reel-secondary'), sStrip, SPIN_COUNT, ITEM_H, 1600);
+      setWarbondLabel(document.getElementById('reel-secondary'), data.secondary.warbond);
+      await sleep(200);
+
+      // Grenade
+      const gMeta = `${data.grenade.type}${data.grenade.ap?' · AP '+data.grenade.ap:''} <span class="stars">${stars(data.grenade[f])}</span>`;
+      const gStrip = buildReel(spinNames.grenade, data.grenade.name, gMeta, SPIN_COUNT, ITEM_H, data.grenade.warbond);
+      await animateReel(document.getElementById('reel-grenade'), gStrip, SPIN_COUNT, ITEM_H, 1400);
+      setWarbondLabel(document.getElementById('reel-grenade'), data.grenade.warbond);
+      await sleep(300);
+
+      // Stratagems
+      const stratContainer = document.getElementById('stratSlots');
+      stratContainer.innerHTML = '';
+
+      for (let i = 0; i < data.stratagems.length; i++) {
+        const s = data.stratagems[i];
+        const slot = document.createElement('div');
+        slot.className = 'reel-slot';
+        const labels = {'Support Weapon':'🔧 Weapon','Backpack':'🎒 Backpack','Strike':'💥 Strike','Vehicle':'🤖 Vehicle'};
+        slot.innerHTML = `<div class="slot-label">${labels[s.slotType]||s.slotType}</div><div class="reel-window"><div class="reel-strip"></div></div><div class="warbond-label"></div>`;
+        stratContainer.appendChild(slot);
+
+        const rating = s[f]?`<span class="stars">${stars(s[f])}</span>`:'';
+        const ap = s.ap?`AP ${s.ap}`:'';
+        const bp = s.hasBackpack?' · 🎒':'';
+        const metaStr = [ap,bp,rating].filter(Boolean).join(' ');
+        const nameHtml = `${s.name} ${tagHtml(s.slotType)}`;
+
+        const strip = buildReel(spinNames.strat, nameHtml, metaStr, SPIN_COUNT - i*2, ITEM_H, s.warbond);
+        await animateReel(slot, strip, SPIN_COUNT - i*2, ITEM_H, 1400 - i*150);
+        setWarbondLabel(slot, s.warbond);
+        await sleep(150);
+      }
+
+      await sleep(200);
+
+      // Drip
+      const armorStrip = buildReel(spinNames.armor, data.armor.name, `${data.armor.weight} · ${data.armor.passive}`, 20, DRIP_H, data.armor.passive);
+      await animateReel(document.getElementById('reel-armor'), armorStrip, 20, DRIP_H, 1200);
+      await sleep(100);
+
+      const helmetStrip = buildReel(spinNames.helmet, data.helmet.name, '', 18, DRIP_H, data.helmet.warbond);
+      await animateReel(document.getElementById('reel-helmet'), helmetStrip, 18, DRIP_H, 1000);
+      await sleep(100);
+
+      const capeStrip = buildReel(spinNames.cape, data.cape.name, '', 16, DRIP_H, data.cape.warbond);
+      await animateReel(document.getElementById('reel-cape'), capeStrip, 16, DRIP_H, 800);
+
+      // Light up dummy
+      svg.classList.add('active');
+
+      btn.classList.remove('spinning');
+      btn.textContent = 'REDEPLOY LOADOUT';
+      isSpinning = false;
+    }
+
+    function setDummyLabel(id, name, colorKey) {
+      const el = document.getElementById(id);
+      const nameEl = el.querySelector('.dl-name');
+      nameEl.textContent = name;
+      if (colorKey) nameEl.style.color = warbondColor(colorKey);
+      el.classList.add('visible');
+
+      // Trigger SVG highlight
+      const hlMap = {
+        'dl-primary': 'hlWeaponAnim',
+        'dl-secondary': 'hlSecondaryAnim',
+        'dl-grenade': 'hlGrenadeAnim',
+        'dl-helmet': 'hlHelmetAnim',
+        'dl-armor': 'hlArmorAnim',
+        'dl-cape': 'hlCapeAnim',
+      };
+      const animId = hlMap[id];
+      if (animId) {
+        const anim = document.getElementById(animId);
+        if (anim) anim.beginElement();
+      }
+    }
+
+    function resetHighlights() {
+      ['hlHelmet','hlArmor','hlCape','hlWeapon','hlSecondary','hlGrenade'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.setAttribute('opacity', '0');
+      });
+    }
+
+    async function shareCard() {
+      const btn = document.querySelector('.share-btn');
+      try {
+        const el = document.getElementById('loadout');
+        const canvas = await html2canvas(el, { backgroundColor: '#0a0a0f', scale: 2 });
+        canvas.toBlob(async blob => {
+          try {
+            await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
+            btn.textContent = '✅ Copied!';
+          } catch {
+            const a = document.createElement('a');
+            a.href = canvas.toDataURL('image/png');
+            a.download = 'hd2-loadout.png';
+            a.click();
+            btn.textContent = '✅ Downloaded!';
+          }
+          setTimeout(()=>{ btn.textContent = '📋 Copy as Image'; }, 2000);
+        }, 'image/png');
+      } catch { btn.textContent = '❌ Failed'; setTimeout(()=>{ btn.textContent = '📋 Copy as Image'; }, 2000); }
+    }
+    // ── Music (HD2 OST Shuffle) ──
+    const bgm = document.getElementById('bgm');
+    bgm.volume = 0.3;
+    let musicPlaying = false;
+
+    const ostTracks = [
+      'ost/a-cup-of-liber-tea-helldivers-2-main-theme.mp3',
+      'ost/hellpods-primed.mp3',
+      'ost/march-of-the-helldivers.mp3',
+      'ost/mission-review.mp3',
+      'ost/no-diver-left-behind.mp3',
+      'ost/ode-to-liberty.mp3',
+      'ost/super-earth-national-anthem.mp3',
+      'ost/the-automaton-legion.mp3',
+      'ost/the-right-side-of-history.mp3',
+      'ost/the-super-destroyer.mp3',
+      'ost/the-terminid-horde.mp3',
+      'ost/welcome-to-the-fight.mp3',
+    ];
+
+    // Shuffle array
+    function shuffle(arr) {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    let playlist = shuffle(ostTracks);
+    let trackIdx = 0;
+
+    function loadTrack() {
+      if (trackIdx >= playlist.length) {
+        playlist = shuffle(ostTracks);
+        trackIdx = 0;
+      }
+      bgm.src = playlist[trackIdx++];
+    }
+
+    bgm.addEventListener('ended', () => {
+      loadTrack();
+      if (musicPlaying) bgm.play();
+    });
+
+    loadTrack(); // queue first track
+
+    function toggleMusic() {
+      if (musicPlaying) {
+        bgm.pause();
+        musicPlaying = false;
+        document.getElementById('musicBtn').textContent = '🔇 Music';
+        document.getElementById('musicBtn').classList.remove('playing');
+      } else {
+        bgm.play();
+        musicPlaying = true;
+        document.getElementById('musicBtn').textContent = '🔊 Music';
+        document.getElementById('musicBtn').classList.add('playing');
+      }
+    }
+
+    // Start music on first user interaction (browsers block autoplay)
+    function startMusic() {
+      if (!musicPlaying) {
+        bgm.play().then(() => {
+          musicPlaying = true;
+          document.getElementById('musicBtn').textContent = '🔊 Music';
+          document.getElementById('musicBtn').classList.add('playing');
+        }).catch(() => {});
+      }
+      document.removeEventListener('click', startMusic);
+      document.removeEventListener('keydown', startMusic);
+    }
+    // Try immediate autoplay first
+    bgm.play().then(() => {
+      musicPlaying = true;
+      document.getElementById('musicBtn').textContent = '🔊 Music';
+      document.getElementById('musicBtn').classList.add('playing');
+    }).catch(() => {
+      // Autoplay blocked — start on first interaction
+      document.addEventListener('click', startMusic);
+      document.addEventListener('keydown', startMusic);
+    });
+  </script>
+</body>
+</html>
