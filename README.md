@@ -1,3 +1,5 @@
-hey welcome to my randomizer
-now use the link to see the randomizer(https://peytonprogrammer.github.io/helldivers2-loadout/)
-hope you enjoy the randomizer
+Hey welcome to my randomizer.
+
+Now use the link to see the randomizer(https://peytonprogrammer.github.io/helldivers2-loadout/)
+
+Hope you enjoy the randomizer!
