@@ -352,5 +352,9 @@ const capes = [
   { name: "Fallen Hero's Vengeance", warbond: 'Base Game' },
 ];
 
-
-// Exposed as globals (no module.exports needed)
+module.exports = {
+  FACTIONS, WARBONDS,
+  primaries, secondaries, grenades,
+  supportWeapons, orbitals, eagles, backpacks, vehicles, sentries,
+  armors, helmets, capes
+};
