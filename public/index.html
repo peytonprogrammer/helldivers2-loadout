@@ -61,6 +61,7 @@
     }
     .faction-btn:hover { border-color: #666; color: #fff; background: rgba(255,255,255,0.06); }
     .faction-btn.active { border-color: var(--fc); color: var(--fc); background: var(--fb); box-shadow: 0 0 20px var(--fg); }
+    .faction-btn:disabled { cursor: not-allowed; opacity: 0.55; }
     .faction-btn[data-faction="terminids"] { --fc: #ff6a00; --fb: rgba(255,106,0,0.1); --fg: rgba(255,106,0,0.3); }
     .faction-btn[data-faction="automatons"] { --fc: #ff2020; --fb: rgba(255,32,32,0.1); --fg: rgba(255,32,32,0.3); }
     .faction-btn[data-faction="illuminate"] { --fc: #a855f7; --fb: rgba(168,85,247,0.1); --fg: rgba(168,85,247,0.3); }
@@ -895,6 +896,7 @@
     }
 
     function selectFaction(f) {
+      if (isSpinning) return;
       selectedFaction = f;
       document.querySelectorAll('.faction-btn').forEach(b=>b.classList.toggle('active',b.dataset.faction===f));
       document.getElementById('generateBtn').disabled = false;
@@ -1009,7 +1011,13 @@
 
     async function generate() {
       if (!selectedFaction || isSpinning) return;
+      const btn = document.getElementById('generateBtn');
+      if (!btn) return;
+      const generationFaction = selectedFaction;
       isSpinning = true;
+      document.querySelectorAll('.faction-btn').forEach(button => { button.disabled = true; });
+
+      try {
 
       // Slot machine sound
       const sfx = document.getElementById('spinSfx');
@@ -1017,7 +1025,6 @@
       sfx.volume = 0.5;
       sfx.play().catch(()=>{});
 
-      const btn = document.getElementById('generateBtn');
       btn.classList.add('spinning');
       btn.textContent = 'DEPLOYING...';
 
@@ -1037,10 +1044,9 @@
       // Reset locked states
       document.querySelectorAll('.reel-slot, .drip-slot').forEach(s => s.classList.remove('locked'));
 
-      try {
         // Always send the filter. An empty selection means Base Game equipment only.
         const wbParam = `?warbonds=${[...selectedWarbonds].map(w=>encodeURIComponent(w)).join(',')}`;
-        const res = await fetch(`/api/generate/${selectedFaction}${wbParam}`);
+        const res = await fetch(`/api/generate/${generationFaction}${wbParam}`);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || `Request failed with HTTP ${res.status}`);
         const f = data.faction;
@@ -1124,6 +1130,7 @@
       } finally {
         btn.classList.remove('spinning');
         isSpinning = false;
+        document.querySelectorAll('.faction-btn').forEach(button => { button.disabled = false; });
       }
     }
 
